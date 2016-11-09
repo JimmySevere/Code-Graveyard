@@ -1,0 +1,121 @@
+$.fn.objectFitFix = function(val){
+  if( typeof HTMLImageElement !== 'function' || M.objectfit )
+    return this;
+
+  return this.each(function(){
+    if( ! this instanceof HTMLImageElement || val == 'none' )
+      return true; //continue;
+
+    var $img = $(this);
+    var $imgParent = $img.parent();
+    var $imgSiblings = $imgParent.children();
+    var imgIndex = $imgSiblings.index($img);
+    var $container = $('<div>');
+    var $internalContainer = $('<div>');
+
+    var iw = this.naturalWidth ? this.naturalWidth : $img.attr('width');
+    var ih = this.naturalHeight ? this.naturalHeight : $img.attr('height');
+    var w = $img.width();
+    var h = $img.height();
+
+
+    $container.css($img.css(['position', 'width', 'height', 'display', 'margin', 'padding']));
+    $internalContainer.css({position:'relative', width:'100%', height:'100%'});
+    $container.append($internalContainer);
+
+    function returnToOriginal(){
+      $container.detach();
+      $img.css({'margin':'', 'padding':'', 'width':'', 'height':''});
+      if(imgIndex == 0){
+        $imgParent.prepend($img);
+      }else{
+        $img.insertAfter($imgSiblings.get(imgIndex-1));
+      }
+    }
+
+    function insertFitted(){
+      $internalContainer.append($img);
+      if(imgIndex == 0){
+        $imgParent.prepend($container);
+      }else{
+        $container.insertAfter($imgSiblings.get(imgIndex-1));
+      }
+    }
+
+    function resetValues(){
+      $imgSiblings = $imgParent.children();
+      imgIndex = $imgSiblings.index($container);
+
+      returnToOriginal();
+
+      iw = this.naturalWidth ? this.naturalWidth : $img.attr('width');
+      ih = this.naturalHeight ? this.naturalHeight : $img.attr('height');
+      w = $img.width();
+      h = $img.height();
+      $container.css($img.css(['position', 'width', 'height', 'display', 'margin', 'padding']));
+
+      insertFitted();
+    }
+
+
+    var eventReevaluate = 'reevaluate.object-fit-fix.bop';
+
+    var firstTime = true;
+    $img.on(eventReevaluate, function(){
+
+      if(!firstTime){
+        resetValues();
+      }else{
+        firstTime = false;
+      }
+
+      $img.css({'margin':0, 'padding':0});
+
+      var aspectRatio, containerRatio;
+      if(val=='contain'||val=='cover'){
+        aspectRatio = iw/ih;
+        containerRatio = w/h;
+      }
+
+      switch(val){
+        case 'contain':
+          if(aspectRatio > containerRatio){
+            $img.width(w).height(w/aspectRatio);
+          }else if(aspectRatio < containerRatio){
+            $img.width(h*aspectRatio).height(h);
+          }else{
+            $img.width(w).height(h);
+          }
+        break;
+        case 'cover':
+          if(aspectRatio > containerRatio){
+            $img.width(h*aspectRatio).height(h);
+          }else if(aspectRatio < containerRatio){
+            $img.width(w).height(w/aspectRatio);
+          }else{
+            $img.width(w).height(h);
+          }
+        break;
+        case 'scale-down':
+          if( ! ( iw < w && ih < h ) ){
+            $img.objectFitFix('contain');
+          }
+        break;
+        case 'fill':
+        case 'initial':
+        default:
+          $img.width(w).height(h);
+        break;
+      }
+
+      $img.centralize();
+
+      insertFitted();
+    }).trigger(eventReevaluate);
+
+    $imgParent.on('resize.object-fit-fix.bop', function(){
+      $img.trigger(eventReevaluate);
+    });
+
+  });
+};
